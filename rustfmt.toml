@@ -1,0 +1,12 @@
+hard_tabs = true
+newline_style = "Native"
+# indent_style = "Visual"
+# imports_indent = "Visual"
+# imports_layout = "HorizontalVertical"
+# control_brace_style = "ClosingNextLine"
+# match_block_trailing_comma = true
+edition = "2018"
+use_field_init_shorthand = true
+# unstable_features = true
+# report_todo = "Unnumbered"
+# report_fixme = "Unnumbered"
