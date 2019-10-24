@@ -7,4 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyper = "~0.12.0"
+hyper = "~0.12.35"
+serde = { version = "~1.0.101", features = ["derive"] }
+serde_json = "~1.0.41"
