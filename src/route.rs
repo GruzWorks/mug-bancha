@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 
 use bytes::Bytes;
 use futures::future;
@@ -15,10 +17,60 @@ type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
  **/
 type BoxOfDreams = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
-enum RequestResult<T> {
-	Ok(T),
+
+
+
+type PipelineResult<T> = Result<T, PipelineError>;
+
+// TODO include error source information
+#[derive(Debug)]
+enum PipelineError {
 	InvalidPayload,
+	CannotFulfil,
+	InternalIoError,
 }
+
+impl PipelineError {
+	fn http_status(&self) -> StatusCode {
+		match self {
+			Self::InvalidPayload => StatusCode::BAD_REQUEST,
+			Self::CannotFulfil => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::InternalIoError => StatusCode::INTERNAL_SERVER_ERROR,
+		}
+	}
+}
+
+impl Error for PipelineError {
+	fn source(&self) -> Option<&(dyn Error + 'static)> {
+		None
+	}
+}
+
+impl fmt::Display for PipelineError {
+	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match &self {
+			Self::InvalidPayload => write!(fmt, "Invalid request payload"),
+			Self::CannotFulfil => write!(fmt, "Cannot fulfil request"),
+			Self::InternalIoError => write!(fmt, "Internal IO error"),
+		}
+	}
+}
+
+impl From<serde_json::Error> for PipelineError {
+	fn from(e: serde_json::Error) -> PipelineError {
+		match e.classify() {
+			serde_json::error::Category::Io => PipelineError::InternalIoError,
+			_ => PipelineError::InvalidPayload,
+		}
+	}
+}
+
+
+
+
+
+
+
 
 #[derive(PartialEq, Eq, Hash)]
 struct Endpoint<'a>(&'a str, &'a Method);
@@ -45,7 +97,7 @@ macro_rules! route {
 	)
 }
 
-fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> RequestResult<O> + Sync))
+fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> PipelineResult<O> + Sync))
 		-> BoxOfDreams
 		where I: DeserializeOwned, O: Serialize {
 	let response_future = body.concat2()
@@ -57,29 +109,19 @@ fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> RequestResu
 			bytes
 		})
 		.map(move |chunk| {
-			match serde_json::from_slice::<I>(&chunk) {
-				Ok(input) => {
-					match handler(input) {
-						RequestResult::Ok(output) => {
-							match serde_json::to_string(&output) {
-								Ok(json) => Response::builder()
-								                      .status(StatusCode::OK)
-								                      .body(Body::from(json))
-								                      .unwrap(),
-								Err(e) => error_response(
-									StatusCode::INTERNAL_SERVER_ERROR,
-									json!({ "message": format!("Response serialization failed: {}", e) })),
-							}
-						},
-						_ => error_response(
-							StatusCode::INTERNAL_SERVER_ERROR,
-							json!({ "message": "Cannot fulfil request" })),
-					}
-				},
-				Err(e) => error_response(
-					StatusCode::BAD_REQUEST,
-					json!({ "message": format!("Invalid request payload: {}", e) })),
-			}
+			let result = serde_json::from_slice::<I>(&chunk)
+				.map_err(|e| PipelineError::from(e))
+				.and_then(|input| handler(input))
+				.and_then(|output|
+					serde_json::to_string(&output)
+					            .map_err(|e| PipelineError::from(e)))
+				.and_then(|s| Ok(Response::builder()
+				                           .status(StatusCode::OK)
+				                           .body(Body::from(s))
+				                           .unwrap()));
+			result.unwrap_or_else(|e| error_response(
+					e.http_status(),
+					json!({ "message": e.to_string() })))
 		});
 	Box::new(response_future)
 }
@@ -99,8 +141,8 @@ struct EchoResponseBody {
 	message: String,
 }
 
-fn echo(_: ()) -> RequestResult<EchoResponseBody> {
-	RequestResult::Ok(EchoResponseBody { message: String::from("INCREDIBLE") })
+fn echo(_: ()) -> PipelineResult<EchoResponseBody> {
+	PipelineResult::Ok(EchoResponseBody { message: String::from("INCREDIBLE") })
 }
 
 
@@ -120,14 +162,6 @@ impl<'a> Router<'a> {
 			       "",
 			       r#"{"message":"INCREDIBLE"}"#),
 		])
-/*
-		Self::with_routes(vec![
-			(Endpoint("/", Method::GET),
-			 Resolution { adapter: Box::new(|_request| { Response::new(Body::from("INCREDIBLE")) }),
-			              sample_request_body: "",
-			              sample_response_body: "INCREDIBLE" })
-		])
-*/
 	}
 
 	fn with_routes(r: Vec<(Endpoint<'a>, Resolution)>) -> Self {
