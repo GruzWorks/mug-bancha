@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use bytes::Bytes;
 use futures::future;
 use futures::future::{Either, Future};
 use hyper::{Body, Chunk, Method, Request, Response};
 use hyper::rt::Stream;
+use http::StatusCode;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use serde_json::json;
 
@@ -46,39 +48,47 @@ macro_rules! route {
 fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> RequestResult<O> + Sync))
 		-> BoxOfDreams
 		where I: DeserializeOwned, O: Serialize {
-	let response_future = body.concat2().map(move |chunk| {
-		match serde_json::from_slice::<I>(&chunk) {
-			Ok(input) => {
-				match handler(input) {
-					RequestResult::Ok(output) => {
-						match serde_json::to_string(&output) {
-							Ok(json) => Response::builder()
-							                      .status(200)
-							                      .body(Body::from(json))
-							                      .unwrap(),
-							Err(e) => Response::builder()
-							                    .status(500)
-							                    .body(bodify(json!({ "message": format!("Response serialization failed: {}", e) })))
-							                    .unwrap(),
-						}
-					},
-					_ => Response::builder()
-					               .status(500)
-					               .body(bodify(json!({ "message": "Cannot fulfil request" })))
-					               .unwrap(),
-				}
-			},
-			Err(e) => Response::builder()
-			                    .status(400)
-			                    .body(bodify(json!({ "message": format!("Invalid request payload: {}", e) })))
-			                    .unwrap(),
-		}
-	});
+	let response_future = body.concat2()
+		.map(|chunk| {
+			let mut bytes = chunk.into_bytes();
+			if bytes.is_empty() {
+				bytes = Bytes::from_static(b"null");
+			}
+			bytes
+		})
+		.map(move |chunk| {
+			match serde_json::from_slice::<I>(&chunk) {
+				Ok(input) => {
+					match handler(input) {
+						RequestResult::Ok(output) => {
+							match serde_json::to_string(&output) {
+								Ok(json) => Response::builder()
+								                      .status(StatusCode::OK)
+								                      .body(Body::from(json))
+								                      .unwrap(),
+								Err(e) => error_response(
+									StatusCode::INTERNAL_SERVER_ERROR,
+									json!({ "message": format!("Response serialization failed: {}", e) })),
+							}
+						},
+						_ => error_response(
+							StatusCode::INTERNAL_SERVER_ERROR,
+							json!({ "message": "Cannot fulfil request" })),
+					}
+				},
+				Err(e) => error_response(
+					StatusCode::BAD_REQUEST,
+					json!({ "message": format!("Invalid request payload: {}", e) })),
+			}
+		});
 	Box::new(response_future)
 }
 
-fn bodify(value: serde_json::value::Value) -> Body {
-	Body::from(value.to_string())
+fn error_response(status: StatusCode, payload: serde_json::value::Value) -> Response<Body> {
+	Response::builder()
+	          .status(status)
+	          .body(Body::from(payload.to_string()))
+	          .unwrap()
 }
 
 
@@ -128,10 +138,9 @@ impl<'a> Router<'a> {
 		let (parts, body) = request.into_parts();
 		match self.routes.get(&Endpoint(parts.uri.path(), &parts.method)) {
 			Some(resolution) => (resolution.adapter)(body),
-			None => Box::new(future::ok(Response::builder()
-			                             .status(404)
-			                             .body(bodify(json!({ "message": "Not found" })))
-			                             .unwrap())),
+			None => Box::new(future::ok(error_response(
+				StatusCode::NOT_FOUND,
+				json!({ "message": "Not found" })))),
 		}
 	}
 }
