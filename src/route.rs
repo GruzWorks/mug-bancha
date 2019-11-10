@@ -15,17 +15,38 @@ use crate::error::{PipelineResult, PipelineError};
  * This is unstable in Rust for now
 type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
  **/
-type BoxOfDreams = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
+pub type BoxOfDreams = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
 #[derive(PartialEq, Eq, Hash)]
-struct Endpoint<'a>(&'a str, &'a Method);
+pub struct Endpoint<'a>(pub &'a str, pub &'a Method);
 
-struct Resolution {
-	adapter: Box<dyn Fn(Body) -> BoxOfDreams>,
-	sample_request_body: &'static str,
-	sample_response_body: &'static str,
+pub struct Resolution {
+	pub adapter: Box<dyn Fn(Body) -> BoxOfDreams>,
+	pub sample_request_body: &'static str,
+	pub sample_response_body: &'static str,
 }
 
+pub struct Router<'a> {
+	routes: HashMap<Endpoint<'a>, Resolution>,
+}
+
+impl<'a> Router<'a> {
+	pub fn with_routes(r: Vec<(Endpoint<'a>, Resolution)>) -> Self {
+		Router { routes: r.into_iter().collect() }
+	}
+
+	pub fn dispatch(&self, request: Request<Body>) -> BoxOfDreams {
+		let (parts, body) = request.into_parts();
+		match self.routes.get(&Endpoint(parts.uri.path(), &parts.method)) {
+			Some(resolution) => (resolution.adapter)(body),
+			None => Box::new(future::ok(error_response(
+				StatusCode::NOT_FOUND,
+				json!({ "message": "Not found" })))),
+		}
+	}
+}
+
+#[macro_export]
 macro_rules! route {
 	( $endpoint:expr,
 	  $handler:expr,
@@ -33,16 +54,16 @@ macro_rules! route {
 	  $resp_body_type:ty,
 	  $sample_req_body:expr,
 	  $sample_resp_body:expr ) => (
-		( $endpoint, Resolution {
-			adapter: Box::new(|body| -> BoxOfDreams {
-				process_request::<$req_body_type, $resp_body_type>(body, $handler)
+		( $endpoint, $crate::route::Resolution {
+			adapter: Box::new(|body| -> $crate::route::BoxOfDreams {
+				$crate::route::process_request::<$req_body_type, $resp_body_type>(body, $handler)
 			}),
 			sample_request_body: $sample_req_body,
 			sample_response_body: $sample_resp_body } )
 	)
 }
 
-fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> PipelineResult<O> + Sync))
+pub fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> PipelineResult<O> + Sync))
 		-> BoxOfDreams
 		where I: DeserializeOwned, O: Serialize {
 	let response_future = body.concat2()
@@ -64,77 +85,25 @@ fn process_request<I, O>(body: Body, handler: &'static (dyn Fn(I) -> PipelineRes
 				                           .status(StatusCode::OK)
 				                           .body(Body::from(s))
 				                           .unwrap()));
-			result.unwrap_or_else(|e| error_response(
-					e.http_status(),
-					json!({ "message": e.to_string() })))
+			result.unwrap_or_else(|e| {
+				error_response(e.http_status(), json!({ "message": e.to_string() }))
+			})
 		});
 	Box::new(response_future)
 }
 
-fn error_response(status: StatusCode, payload: serde_json::value::Value) -> Response<Body> {
+fn error_response(status: StatusCode, payload: serde_json::Value) -> Response<Body> {
 	Response::builder()
 	          .status(status)
 	          .body(Body::from(payload.to_string()))
 	          .unwrap()
 }
 
-
-
-
 #[derive(Serialize)]
-struct EchoResponseBody {
+pub struct EchoResponseBody {
 	message: String,
 }
 
-fn echo(_: ()) -> PipelineResult<EchoResponseBody> {
+pub fn echo(_: ()) -> PipelineResult<EchoResponseBody> {
 	PipelineResult::Ok(EchoResponseBody { message: String::from("INCREDIBLE") })
-}
-
-
-
-
-struct Router<'a> {
-	routes: HashMap<Endpoint<'a>, Resolution>,
-}
-
-impl<'a> Router<'a> {
-	fn init() -> Self {
-		Self::with_routes(vec![
-			route!(Endpoint("/", &Method::GET),
-			       &echo,
-			       (),
-			       EchoResponseBody,
-			       "",
-			       r#"{"message":"INCREDIBLE"}"#),
-		])
-	}
-
-	fn with_routes(r: Vec<(Endpoint<'a>, Resolution)>) -> Self {
-		Router { routes: r.into_iter().collect() }
-	}
-
-	fn dispatch_request(&self, request: Request<Body>) -> BoxOfDreams {
-		let (parts, body) = request.into_parts();
-		match self.routes.get(&Endpoint(parts.uri.path(), &parts.method)) {
-			Some(resolution) => (resolution.adapter)(body),
-			None => Box::new(future::ok(error_response(
-				StatusCode::NOT_FOUND,
-				json!({ "message": "Not found" })))),
-		}
-	}
-}
-/*
-		Router::with_routes(vec![
-			route!(Endpoint("/", Method::GET),
-			       handler,
-			       InputDataType,
-			       OutputDataType,
-			       "",
-			       "INCREDIBLE")
-		])
-
-*/
-
-pub fn dispatch(request: Request<Body>) -> BoxOfDreams {
-	Router::init().dispatch_request(request)
 }
