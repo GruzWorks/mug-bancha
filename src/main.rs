@@ -2,6 +2,7 @@ use hyper::{Server};
 use hyper::rt::Future;
 use hyper::service::service_fn;
 
+mod error;
 mod route;
 
 fn main() {

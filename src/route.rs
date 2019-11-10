@@ -1,76 +1,21 @@
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
 
 use bytes::Bytes;
 use futures::future;
-use futures::future::{Either, Future};
-use hyper::{Body, Chunk, Method, Request, Response};
+use futures::future::Future;
+use hyper::{Body, Method, Request, Response};
 use hyper::rt::Stream;
 use http::StatusCode;
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
+
+use crate::error::{PipelineResult, PipelineError};
 
 /**
  * This is unstable in Rust for now
 type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
  **/
 type BoxOfDreams = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
-
-
-
-
-type PipelineResult<T> = Result<T, PipelineError>;
-
-// TODO include error source information
-#[derive(Debug)]
-enum PipelineError {
-	InvalidPayload,
-	CannotFulfil,
-	InternalIoError,
-}
-
-impl PipelineError {
-	fn http_status(&self) -> StatusCode {
-		match self {
-			Self::InvalidPayload => StatusCode::BAD_REQUEST,
-			Self::CannotFulfil => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::InternalIoError => StatusCode::INTERNAL_SERVER_ERROR,
-		}
-	}
-}
-
-impl Error for PipelineError {
-	fn source(&self) -> Option<&(dyn Error + 'static)> {
-		None
-	}
-}
-
-impl fmt::Display for PipelineError {
-	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match &self {
-			Self::InvalidPayload => write!(fmt, "Invalid request payload"),
-			Self::CannotFulfil => write!(fmt, "Cannot fulfil request"),
-			Self::InternalIoError => write!(fmt, "Internal IO error"),
-		}
-	}
-}
-
-impl From<serde_json::Error> for PipelineError {
-	fn from(e: serde_json::Error) -> PipelineError {
-		match e.classify() {
-			serde_json::error::Category::Io => PipelineError::InternalIoError,
-			_ => PipelineError::InvalidPayload,
-		}
-	}
-}
-
-
-
-
-
-
-
 
 #[derive(PartialEq, Eq, Hash)]
 struct Endpoint<'a>(&'a str, &'a Method);
