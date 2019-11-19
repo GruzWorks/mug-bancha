@@ -1,6 +1,6 @@
-use serde::{Serialize};
+use serde::Serialize;
 
-use crate::error::{PipelineResult};
+use crate::error::PipelineResult;
 
 #[derive(Serialize)]
 pub struct EchoResponseBody {

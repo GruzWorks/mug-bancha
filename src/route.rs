@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use bytes::Bytes;
 use futures::future;
 use futures::future::Future;
-use hyper::{Body, Method, Request, Response};
-use hyper::rt::Stream;
 use http::StatusCode;
-use serde::{Serialize, de::DeserializeOwned};
+use hyper::rt::Stream;
+use hyper::{Body, Method, Request, Response};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 
-use crate::error::{PipelineResult, PipelineError};
+use crate::error::{PipelineError, PipelineResult};
 
 /**
  * This is unstable in Rust for now
@@ -41,7 +41,8 @@ impl<'a> Router<'a> {
 			Some(resolution) => (resolution.adapter)(body),
 			None => Box::new(future::ok(error_response(
 				StatusCode::NOT_FOUND,
-				json!({ "message": "Not found" })))),
+				json!({ "message": "Not found" }),
+			))),
 		}
 	}
 }
