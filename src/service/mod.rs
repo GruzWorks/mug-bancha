@@ -3,6 +3,9 @@ use hyper::Method;
 
 use crate::route;
 use crate::route::{Endpoint, Router};
+use resource::echo;
+
+mod resource;
 
 pub fn run() {
 	let addr = ([127, 0, 0, 1], 3000).into();
@@ -11,9 +14,9 @@ pub fn run() {
 		hyper::service::service_fn(|request| {
 			Router::with_routes(vec![
 				route!(Endpoint("/", &Method::GET),
-				       &route::echo,
+				       &echo::get,
 				       (),
-				       route::EchoResponseBody,
+				       echo::EchoResponseBody,
 				       "",
 				       r#"{"message":"INCREDIBLE"}"#),
 			]).dispatch(request)

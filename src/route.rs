@@ -98,12 +98,3 @@ fn error_response(status: StatusCode, payload: serde_json::Value) -> Response<Bo
 	          .body(Body::from(payload.to_string()))
 	          .unwrap()
 }
-
-#[derive(Serialize)]
-pub struct EchoResponseBody {
-	message: String,
-}
-
-pub fn echo(_: ()) -> PipelineResult<EchoResponseBody> {
-	PipelineResult::Ok(EchoResponseBody { message: String::from("INCREDIBLE") })
-}
