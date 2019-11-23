@@ -30,11 +30,11 @@ impl Storage {
 	pub fn init() -> Storage {
 		let data = vec![
 			Mug {
-				id: 5,
+				id: -4,
 				name: String::from("Foo"),
-				lat: 50.0,
-				lon: 21.0,
-				address: String::from("Bar"),
+				lat: 51.0,
+				lon: 17.0,
+				address: String::from("14 Bar, Baz 2222, Fooland"),
 				num_mugs: 2,
 			},
 		];
