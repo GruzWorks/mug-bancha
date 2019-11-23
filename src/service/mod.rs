@@ -25,7 +25,7 @@ pub fn run() {
 				       (),
 				       echo::EchoResponseBody,
 				       "",
-				       r#"{"message":"INCREDIBLE"}"#),
+				       r#"{"message":"mug-bancha says hello!"}"#),
 				route!(Endpoint("/1/mugs", &Method::GET),
 				       &mugs::get,
 				       (),

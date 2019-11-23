@@ -8,5 +8,5 @@ pub struct EchoResponseBody {
 }
 
 pub fn get(_: ()) -> PipelineResult<EchoResponseBody> {
-	PipelineResult::Ok(EchoResponseBody { message: String::from("INCREDIBLE") })
+	PipelineResult::Ok(EchoResponseBody { message: String::from("mug-bancha says hello!") })
 }
