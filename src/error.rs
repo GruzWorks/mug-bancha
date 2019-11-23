@@ -11,16 +11,18 @@ pub type PipelineResult<T> = Result<T, PipelineError>;
 #[derive(Debug)]
 pub enum PipelineError {
 	InvalidPayload(Box<dyn Error>),
-	CannotFulfil,
 	InternalIoError(Box<dyn Error>),
+	CannotFulfil,
+	NotFound(String),
 }
 
 impl PipelineError {
 	pub fn http_status(&self) -> StatusCode {
 		match self {
 			Self::InvalidPayload(_) => StatusCode::BAD_REQUEST,
-			Self::CannotFulfil => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::InternalIoError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::CannotFulfil => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::NotFound(_) => StatusCode::NOT_FOUND,
 		}
 	}
 }
@@ -39,8 +41,9 @@ impl fmt::Display for PipelineError {
 	fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::InvalidPayload(e) => write!(fmt, "Invalid request payload: {}", e.to_string()),
-			Self::CannotFulfil => write!(fmt, "Cannot fulfil request"),
 			Self::InternalIoError(e) => write!(fmt, "Internal IO error: {}", e.to_string()),
+			Self::CannotFulfil => write!(fmt, "Cannot fulfil request"),
+			Self::NotFound(s) => write!(fmt, "Not found: {}", s),
 		}
 	}
 }
