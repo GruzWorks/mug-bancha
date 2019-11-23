@@ -15,9 +15,7 @@ pub static mut MUGS: Mugs = Mugs { storage: None };
 pub fn get(_: ()) -> PipelineResult<Vec<Mug>> {
 	let storage = unsafe { &MUGS.storage };
 	match storage {
-		Some(mutex) => {
-			mutex.lock().unwrap().select_all()
-		},
+		Some(mutex) => mutex.lock().unwrap().select_all(),
 		None => PipelineResult::Err(PipelineError::CannotFulfil),
 	}
 }
@@ -25,9 +23,7 @@ pub fn get(_: ()) -> PipelineResult<Vec<Mug>> {
 pub fn put(mug: EphemeralMug) -> PipelineResult<Mug> {
 	let storage = unsafe { &MUGS.storage };
 	match storage {
-		Some(mutex) => {
-			mutex.lock().unwrap().insert(mug)
-		},
+		Some(mutex) => mutex.lock().unwrap().insert(mug),
 		None => PipelineResult::Err(PipelineError::CannotFulfil),
 	}
 }
@@ -35,9 +31,7 @@ pub fn put(mug: EphemeralMug) -> PipelineResult<Mug> {
 pub fn patch(mug: Mug) -> PipelineResult<Mug> {
 	let storage = unsafe { &MUGS.storage };
 	match storage {
-		Some(mutex) => {
-			mutex.lock().unwrap().update(mug)
-		},
+		Some(mutex) => mutex.lock().unwrap().update(mug),
 		None => PipelineResult::Err(PipelineError::CannotFulfil),
 	}
 }
@@ -45,9 +39,7 @@ pub fn patch(mug: Mug) -> PipelineResult<Mug> {
 pub fn delete(mug: Mug) -> PipelineResult<()> {
 	let storage = unsafe { &MUGS.storage };
 	match storage {
-		Some(mutex) => {
-			mutex.lock().unwrap().delete(mug)
-		},
+		Some(mutex) => mutex.lock().unwrap().delete(mug),
 		None => PipelineResult::Err(PipelineError::CannotFulfil),
 	}
 }
