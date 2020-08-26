@@ -5,21 +5,21 @@ use crate::error::{PipelineError, PipelineResult};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Mug {
-	id: i64,
-	name: String,
-	lat: f64,
-	lon: f64,
-	address: String,
-	num_mugs: u32,
+	pub id: i64,
+	pub name: String,
+	pub lat: f64,
+	pub lon: f64,
+	pub address: String,
+	pub num_mugs: u32,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct EphemeralMug {
-	name: String,
-	lat: f64,
-	lon: f64,
-	address: String,
-	num_mugs: u32,
+	pub name: String,
+	pub lat: f64,
+	pub lon: f64,
+	pub address: String,
+	pub num_mugs: u32,
 }
 
 pub struct Storage {
@@ -28,15 +28,7 @@ pub struct Storage {
 
 impl Storage {
 	pub fn init() -> Storage {
-		let data = vec![Mug {
-			id: -4,
-			name: String::from("Foo"),
-			lat: 51.0,
-			lon: 17.0,
-			address: String::from("14 Bar, Baz 2222, Fooland"),
-			num_mugs: 2,
-		}];
-		Storage { data }
+		Storage { data: Vec::new() }
 	}
 
 	pub fn select_all(&self) -> PipelineResult<Vec<Mug>> {

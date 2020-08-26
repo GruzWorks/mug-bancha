@@ -111,7 +111,7 @@ where
 	Box::new(response_future)
 }
 
-fn error_response(status: StatusCode, payload: serde_json::Value) -> Response<Body> {
+pub fn error_response(status: StatusCode, payload: serde_json::Value) -> Response<Body> {
 	Response::builder()
 		.status(status)
 		.body(Body::from(payload.to_string()))

@@ -1,7 +1,3 @@
-mod error;
-mod route;
-mod service;
-
 fn main() {
-	service::run();
+	mug_bancha::service::run();
 }
