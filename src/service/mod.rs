@@ -55,8 +55,8 @@ pub fn run() {
 	};
 
 	let server = hyper::Server::bind(&addr)
-	                            .serve(service)
-	                            .map_err(|e| eprintln!("hyper error: {}", e));
+		.serve(service)
+		.map_err(|e| eprintln!("hyper error: {}", e));
 
 	hyper::rt::run(server);
 }

@@ -28,16 +28,14 @@ pub struct Storage {
 
 impl Storage {
 	pub fn init() -> Storage {
-		let data = vec![
-			Mug {
-				id: -4,
-				name: String::from("Foo"),
-				lat: 51.0,
-				lon: 17.0,
-				address: String::from("14 Bar, Baz 2222, Fooland"),
-				num_mugs: 2,
-			},
-		];
+		let data = vec![Mug {
+			id: -4,
+			name: String::from("Foo"),
+			lat: 51.0,
+			lon: 17.0,
+			address: String::from("14 Bar, Baz 2222, Fooland"),
+			num_mugs: 2,
+		}];
 		Storage { data }
 	}
 
@@ -67,10 +65,10 @@ impl Storage {
 			Some(entry) => {
 				*entry = v;
 				PipelineResult::Ok(entry.clone())
-			},
-			None => PipelineResult::Err(PipelineError::NotFound(
-				String::from("Mug does not exist")
-			)),
+			}
+			None => {
+				PipelineResult::Err(PipelineError::NotFound(String::from("Mug does not exist")))
+			}
 		}
 	}
 
@@ -79,11 +77,8 @@ impl Storage {
 		self.data.retain(|entry| entry.id != v.id);
 		if self.data.len() < before {
 			PipelineResult::Ok(())
-		}
-		else {
-			PipelineResult::Err(PipelineError::NotFound(
-				String::from("Mug does not exist")
-			))
+		} else {
+			PipelineResult::Err(PipelineError::NotFound(String::from("Mug does not exist")))
 		}
 	}
 
@@ -94,7 +89,7 @@ impl Storage {
 				mug = Some(entry);
 				break;
 			}
-		};
+		}
 		mug
 	}
 }
