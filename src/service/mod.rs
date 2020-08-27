@@ -11,7 +11,7 @@ use crate::route::{Endpoint, Router};
 use resource::echo;
 use resource::mugs;
 
-pub mod resource;
+mod resource;
 
 pub fn run() {
 	unsafe {
@@ -75,4 +75,43 @@ fn handle_request(request: Request<Body>) -> route::BoxOfDreams {
 			   r#"{"id":4,"name":"Foo","lat":51.0,"lon":17.0,"address":"14 Bar, Baz 2222, Fooland","num_mugs":2}"#,
 			   "null"),
 	]).dispatch(request)*/
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use resource::mugs::{self, EphemeralMug, Storage};
+
+	fn init_storage() {
+		let mut storage = Storage::init();
+
+		storage
+			.insert(EphemeralMug {
+				name: String::from("Foo"),
+				lat: 51.0,
+				lon: 17.0,
+				address: String::from("14 Bar Street"),
+				num_mugs: 2,
+			})
+			.unwrap();
+
+		unsafe {
+			mugs::MUGS.storage = Some(Mutex::new(storage));
+		}
+	}
+
+	#[test]
+	fn lists_mugs() {
+		init_storage();
+
+		let request = Request::builder()
+			.uri("http://foo.bar/1/mugs")
+			.method(Method::GET)
+			.body(Body::empty())
+			.unwrap();
+
+		let response = handle_request(request).wait().unwrap();
+
+		assert_eq!(response.status(), StatusCode::OK);
+	}
 }
