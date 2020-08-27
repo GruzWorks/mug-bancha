@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{PipelineError, PipelineResult};
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Mug {
 	pub id: i64,
 	pub name: String,
@@ -13,13 +13,39 @@ pub struct Mug {
 	pub num_mugs: u32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct EphemeralMug {
 	pub name: String,
 	pub lat: f64,
 	pub lon: f64,
 	pub address: String,
 	pub num_mugs: u32,
+}
+
+impl PartialEq<EphemeralMug> for Mug {
+	fn eq(&self, other: &EphemeralMug) -> bool {
+		(&self.name, self.lat, self.lon, &self.address, self.num_mugs)
+			== (
+				&other.name,
+				other.lat,
+				other.lon,
+				&other.address,
+				other.num_mugs,
+			)
+	}
+}
+
+impl PartialEq<Mug> for EphemeralMug {
+	fn eq(&self, other: &Mug) -> bool {
+		(&self.name, self.lat, self.lon, &self.address, self.num_mugs)
+			== (
+				&other.name,
+				other.lat,
+				other.lon,
+				&other.address,
+				other.num_mugs,
+			)
+	}
 }
 
 pub struct Storage {

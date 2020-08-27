@@ -79,8 +79,13 @@ fn handle_request(request: Request<Body>) -> route::BoxOfDreams {
 
 #[cfg(test)]
 mod tests {
+	use bytes::Bytes;
+	use futures::stream::Stream;
+	use http::Response;
+	use serde::de::DeserializeOwned;
+
 	use super::*;
-	use resource::mugs::{self, EphemeralMug, Storage};
+	use resource::mugs::{self, EphemeralMug, Mug, Storage};
 
 	fn init_storage() {
 		let mut storage = Storage::init();
@@ -101,7 +106,7 @@ mod tests {
 	}
 
 	#[test]
-	fn lists_mugs() {
+	fn lists_mugs() -> Result<(), String> {
 		init_storage();
 
 		let request = Request::builder()
@@ -113,5 +118,43 @@ mod tests {
 		let response = handle_request(request).wait().unwrap();
 
 		assert_eq!(response.status(), StatusCode::OK);
+
+		let result = deserialize_response::<Vec<Mug>>(response)?;
+
+		assert_eq!(
+			result,
+			vec![EphemeralMug {
+				name: String::from("Foo"),
+				lat: 51.0,
+				lon: 17.0,
+				address: String::from("14 Bar Street"),
+				num_mugs: 2,
+			}]
+		);
+
+		Ok(())
+	}
+
+	fn deserialize_response<T: DeserializeOwned>(response: Response<Body>) -> Result<T, String> {
+		response
+			.into_body()
+			.concat2()
+			.map(|chunk| {
+				let mut bytes = chunk.into_bytes();
+				if bytes.is_empty() {
+					bytes = Bytes::from_static(b"null");
+				}
+				bytes
+			})
+			.map(move |chunk| serde_json::from_slice::<T>(&chunk))
+			.wait()
+			.unwrap()
+			.map_err(|e| {
+				format!(
+					"Reponse body did not match type {}: {}",
+					std::any::type_name::<T>(),
+					e
+				)
+			})
 	}
 }
