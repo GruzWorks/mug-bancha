@@ -136,16 +136,7 @@ mod tests {
 	}
 
 	fn deserialize_response<T: DeserializeOwned>(response: Response<Body>) -> Result<T, String> {
-		response
-			.into_body()
-			.concat2()
-			.map(|chunk| {
-				let mut bytes = chunk.into_bytes();
-				if bytes.is_empty() {
-					bytes = Bytes::from_static(b"null");
-				}
-				bytes
-			})
+		route::json_bytes(response.into_body())
 			.map(move |chunk| serde_json::from_slice::<T>(&chunk))
 			.wait()
 			.unwrap()

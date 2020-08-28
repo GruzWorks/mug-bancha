@@ -82,15 +82,7 @@ where
 	I: DeserializeOwned,
 	O: Serialize,
 {
-	let response_future = body
-		.concat2()
-		.map(|chunk| {
-			let mut bytes = chunk.into_bytes();
-			if bytes.is_empty() {
-				bytes = Bytes::from_static(b"null");
-			}
-			bytes
-		})
+	let response_future = json_bytes(body)
 		.map(move |chunk| {
 			let result = serde_json::from_slice::<I>(&chunk)
 				.map_err(|e| PipelineError::from(e))
@@ -116,4 +108,16 @@ pub fn error_response(status: StatusCode, payload: serde_json::Value) -> Respons
 		.status(status)
 		.body(Body::from(payload.to_string()))
 		.unwrap()
+}
+
+pub fn json_bytes(body: Body) -> impl Future<Item = Bytes, Error = hyper::Error> {
+	body
+		.concat2()
+		.map(|chunk| {
+			let mut bytes = chunk.into_bytes();
+			if bytes.is_empty() {
+				bytes = Bytes::from_static(b"null");
+			}
+			bytes
+		})
 }
