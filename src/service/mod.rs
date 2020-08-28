@@ -4,6 +4,7 @@ use futures::future;
 use futures::future::Future;
 use http::{Request, StatusCode};
 use hyper::{Body, Method};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::route;
@@ -12,6 +13,19 @@ use resource::echo;
 use resource::mugs;
 
 mod resource;
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+pub struct Message {
+	pub message: String,
+}
+
+impl Message {
+	pub fn new(msg: &str) -> Self {
+		Message {
+			message: msg.to_owned(),
+		}
+	}
+}
 
 pub fn run() {
 	unsafe {
@@ -47,7 +61,7 @@ fn handle_request(request: Request<Body>) -> route::BoxOfDreams {
 		route!(Endpoint("/1/echo", &Method::GET),
 			   &echo::get,
 			   (),
-			   echo::EchoResponseBody,
+			   Message,
 			   "",
 			   r#"{"message":"mug-bancha says hello!"}"#),
 		route!(Endpoint("/1/mugs", &Method::GET),
@@ -85,7 +99,6 @@ mod tests {
 	use serde::de::DeserializeOwned;
 
 	use super::*;
-	use resource::echo::EchoResponseBody;
 	use resource::mugs::{self, EphemeralMug, Mug, Storage};
 
 	fn init_storage() {
@@ -117,10 +130,8 @@ mod tests {
 		let response = handle_request(request).wait().unwrap();
 
 		assert_eq!(response.status(), StatusCode::OK);
-
-		let result = deserialize_response::<EchoResponseBody>(response)?;
-
-		assert_eq!(result, EchoResponseBody { message: String::from("mug-bancha says hello!") });
+		let result = deserialize_response::<Message>(response)?;
+		assert_eq!(result, Message::new("mug-bancha says hello!"));
 
 		Ok(())
 	}
@@ -151,6 +162,23 @@ mod tests {
 				num_mugs: 2,
 			}]
 		);
+
+		Ok(())
+	}
+
+	#[test]
+	fn invalid_path() -> Result<(), String> {
+		let request = Request::builder()
+			.uri("http://foo.bar/echo")
+			.method(Method::GET)
+			.body(Body::empty())
+			.unwrap();
+
+		let response = handle_request(request).wait().unwrap();
+
+		assert_eq!(response.status(), StatusCode::NOT_FOUND);
+		let result = deserialize_response::<Message>(response)?;
+		assert_eq!(result, Message::new("Not found"));
 
 		Ok(())
 	}

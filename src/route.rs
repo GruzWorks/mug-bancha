@@ -82,24 +82,21 @@ where
 	I: DeserializeOwned,
 	O: Serialize,
 {
-	let response_future = json_bytes(body)
-		.map(move |chunk| {
-			let result = serde_json::from_slice::<I>(&chunk)
-				.map_err(|e| PipelineError::from(e))
-				.and_then(|input| handler(input))
-				.and_then(|output| {
-					serde_json::to_string(&output).map_err(|e| PipelineError::from(e))
-				})
-				.and_then(|s| {
-					Ok(Response::builder()
-						.status(StatusCode::OK)
-						.body(Body::from(s))
-						.unwrap())
-				});
-			result.unwrap_or_else(|e| {
-				error_response(e.http_status(), json!({ "message": e.to_string() }))
-			})
-		});
+	let response_future = json_bytes(body).map(move |chunk| {
+		let result = serde_json::from_slice::<I>(&chunk)
+			.map_err(|e| PipelineError::from(e))
+			.and_then(|input| handler(input))
+			.and_then(|output| serde_json::to_string(&output).map_err(|e| PipelineError::from(e)))
+			.and_then(|s| {
+				Ok(Response::builder()
+					.status(StatusCode::OK)
+					.body(Body::from(s))
+					.unwrap())
+			});
+		result.unwrap_or_else(|e| {
+			error_response(e.http_status(), json!({ "message": e.to_string() }))
+		})
+	});
 	Box::new(response_future)
 }
 
@@ -111,13 +108,11 @@ pub fn error_response(status: StatusCode, payload: serde_json::Value) -> Respons
 }
 
 pub fn json_bytes(body: Body) -> impl Future<Item = Bytes, Error = hyper::Error> {
-	body
-		.concat2()
-		.map(|chunk| {
-			let mut bytes = chunk.into_bytes();
-			if bytes.is_empty() {
-				bytes = Bytes::from_static(b"null");
-			}
-			bytes
-		})
+	body.concat2().map(|chunk| {
+		let mut bytes = chunk.into_bytes();
+		if bytes.is_empty() {
+			bytes = Bytes::from_static(b"null");
+		}
+		bytes
+	})
 }
