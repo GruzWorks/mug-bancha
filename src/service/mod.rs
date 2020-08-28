@@ -171,6 +171,74 @@ mod tests {
 	}
 
 	#[test]
+	fn inserts_mug() -> Result<(), String> {
+		init_storage();
+
+		let request = Request::builder()
+			.uri("http://foo.bar/1/mugs")
+			.method(Method::PUT)
+			.body(Body::from(serde_json::to_string(&EphemeralMug {
+				name: String::from("Point"),
+				lat: -39.0,
+				lon: -67.0,
+				address: String::from("Real Address"),
+				num_mugs: 4,
+			}).unwrap()))
+			.unwrap();
+
+		let response = handle_request(request).wait().unwrap();
+
+		assert_eq!(response.status(), StatusCode::OK);
+
+		let result: Mug = deserialize_response(response)?;
+
+		assert_eq!(
+			result,
+			EphemeralMug {
+				name: String::from("Point"),
+				lat: -39.0,
+				lon: -67.0,
+				address: String::from("Real Address"),
+				num_mugs: 4,
+			}
+		);
+
+		let request = Request::builder()
+			.uri("http://foo.bar/1/mugs")
+			.method(Method::GET)
+			.body(Body::empty())
+			.unwrap();
+
+		let response = handle_request(request).wait().unwrap();
+
+		assert_eq!(response.status(), StatusCode::OK);
+
+		let result = deserialize_response::<Vec<Mug>>(response)?;
+
+		assert_eq!(
+			result,
+			vec![
+				EphemeralMug {
+					name: String::from("Foo"),
+					lat: 51.0,
+					lon: 17.0,
+					address: String::from("14 Bar Street"),
+					num_mugs: 2,
+				},
+				EphemeralMug {
+					name: String::from("Point"),
+					lat: -39.0,
+					lon: -67.0,
+					address: String::from("Real Address"),
+					num_mugs: 4,
+				},
+			]
+		);
+
+		Ok(())
+	}
+
+	#[test]
 	fn invalid_path() -> Result<(), String> {
 		let request = Request::builder()
 			.uri("http://foo.bar/echo")
