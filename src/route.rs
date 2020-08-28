@@ -9,7 +9,10 @@ use hyper::{Body, Method, Request, Response};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 
-use crate::error::{PipelineError, PipelineResult};
+use crate::{
+	error::{PipelineError, PipelineResult},
+	service::Message,
+};
 
 /**
  * This is unstable in Rust for now
@@ -43,7 +46,7 @@ impl<'a> Router<'a> {
 			Some(resolution) => (resolution.adapter)(body),
 			None => Box::new(future::ok(error_response(
 				StatusCode::NOT_FOUND,
-				json!({ "message": "Not found" }),
+				Message::from("Not found"),
 			))),
 		}
 	}
@@ -94,16 +97,16 @@ where
 					.unwrap())
 			});
 		result.unwrap_or_else(|e| {
-			error_response(e.http_status(), json!({ "message": e.to_string() }))
+			error_response(e.http_status(), Message::from(e.to_string()))
 		})
 	});
 	Box::new(response_future)
 }
 
-pub fn error_response(status: StatusCode, payload: serde_json::Value) -> Response<Body> {
+pub fn error_response(status: StatusCode, msg: Message) -> Response<Body> {
 	Response::builder()
 		.status(status)
-		.body(Body::from(payload.to_string()))
+		.body(Body::from(serde_json::to_string(&msg).unwrap()))
 		.unwrap()
 }
 

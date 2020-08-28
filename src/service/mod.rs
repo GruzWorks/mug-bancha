@@ -19,11 +19,15 @@ pub struct Message {
 	pub message: String,
 }
 
-impl Message {
-	pub fn new(msg: &str) -> Self {
-		Message {
-			message: msg.to_owned(),
-		}
+impl From<&'_ str> for Message {
+	fn from(s: &'_ str) -> Self {
+		Message { message: s.to_owned() }
+	}
+}
+
+impl From<String> for Message {
+	fn from(s: String) -> Self {
+		Message { message: s }
 	}
 }
 
@@ -53,7 +57,7 @@ fn handle_request(request: Request<Body>) -> route::BoxOfDreams {
 		("/1/mugs", Method::DELETE) => route::process_request(body, &mugs::delete),
 		_ => Box::new(future::ok(route::error_response(
 			StatusCode::NOT_FOUND,
-			json!({ "message": "Not found" }),
+			Message::from("Not found"),
 		))),
 	}
 	/*
@@ -131,7 +135,7 @@ mod tests {
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Message>(response)?;
-		assert_eq!(result, Message::new("mug-bancha says hello!"));
+		assert_eq!(result, Message::from("mug-bancha says hello!"));
 
 		Ok(())
 	}
@@ -178,7 +182,7 @@ mod tests {
 
 		assert_eq!(response.status(), StatusCode::NOT_FOUND);
 		let result = deserialize_response::<Message>(response)?;
-		assert_eq!(result, Message::new("Not found"));
+		assert_eq!(result, Message::from("Not found"));
 
 		Ok(())
 	}
