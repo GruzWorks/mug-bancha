@@ -85,6 +85,7 @@ mod tests {
 	use serde::de::DeserializeOwned;
 
 	use super::*;
+	use resource::echo::EchoResponseBody;
 	use resource::mugs::{self, EphemeralMug, Mug, Storage};
 
 	fn init_storage() {
@@ -103,6 +104,25 @@ mod tests {
 		unsafe {
 			mugs::MUGS.storage = Some(Mutex::new(storage));
 		}
+	}
+
+	#[test]
+	fn echoes() -> Result<(), String> {
+		let request = Request::builder()
+			.uri("http://foo.bar/1/echo")
+			.method(Method::GET)
+			.body(Body::empty())
+			.unwrap();
+
+		let response = handle_request(request).wait().unwrap();
+
+		assert_eq!(response.status(), StatusCode::OK);
+
+		let result = deserialize_response::<EchoResponseBody>(response)?;
+
+		assert_eq!(result, EchoResponseBody { message: String::from("mug-bancha says hello!") });
+
+		Ok(())
 	}
 
 	#[test]
