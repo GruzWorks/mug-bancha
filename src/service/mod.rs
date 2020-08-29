@@ -105,6 +105,23 @@ mod tests {
 	use super::*;
 	use resource::mugs::{self, EphemeralMug, Mug, Storage};
 
+	macro_rules! request {
+		( $method:ident $path:expr ) => {
+			Request::builder()
+				.uri(format!("http://foo.bar{}", $path))
+				.method(Method::$method)
+				.body(Body::empty())
+				.unwrap()
+		};
+		( $method:ident $path:expr, $payload:expr ) => {
+			Request::builder()
+				.uri(format!("http://foo.bar{}", $path))
+				.method(Method::$method)
+				.body(Body::from(serde_json::to_string($payload).unwrap()))
+				.unwrap()
+		};
+	}
+
 	fn init_storage() {
 		let mut storage = Storage::init();
 
@@ -125,11 +142,7 @@ mod tests {
 
 	#[test]
 	fn echoes() -> Result<(), String> {
-		let request = Request::builder()
-			.uri("http://foo.bar/1/echo")
-			.method(Method::GET)
-			.body(Body::empty())
-			.unwrap();
+		let request = request!(GET "/1/echo");
 
 		let response = handle_request(request).wait().unwrap();
 
@@ -144,18 +157,12 @@ mod tests {
 	fn lists_mugs() -> Result<(), String> {
 		init_storage();
 
-		let request = Request::builder()
-			.uri("http://foo.bar/1/mugs")
-			.method(Method::GET)
-			.body(Body::empty())
-			.unwrap();
+		let request = request!(GET "/1/mugs");
 
 		let response = handle_request(request).wait().unwrap();
 
 		assert_eq!(response.status(), StatusCode::OK);
-
 		let result = deserialize_response::<Vec<Mug>>(response)?;
-
 		assert_eq!(
 			result,
 			vec![EphemeralMug {
@@ -174,24 +181,19 @@ mod tests {
 	fn inserts_mug() -> Result<(), String> {
 		init_storage();
 
-		let request = Request::builder()
-			.uri("http://foo.bar/1/mugs")
-			.method(Method::PUT)
-			.body(Body::from(serde_json::to_string(&EphemeralMug {
+		let request = request!(PUT "/1/mugs", 
+			&EphemeralMug {
 				name: String::from("Point"),
 				lat: -39.0,
 				lon: -67.0,
 				address: String::from("Real Address"),
 				num_mugs: 4,
-			}).unwrap()))
-			.unwrap();
+			});
 
 		let response = handle_request(request).wait().unwrap();
 
 		assert_eq!(response.status(), StatusCode::OK);
-
 		let result: Mug = deserialize_response(response)?;
-
 		assert_eq!(
 			result,
 			EphemeralMug {
@@ -203,18 +205,12 @@ mod tests {
 			}
 		);
 
-		let request = Request::builder()
-			.uri("http://foo.bar/1/mugs")
-			.method(Method::GET)
-			.body(Body::empty())
-			.unwrap();
+		let request = request!(GET "/1/mugs");
 
 		let response = handle_request(request).wait().unwrap();
 
 		assert_eq!(response.status(), StatusCode::OK);
-
 		let result = deserialize_response::<Vec<Mug>>(response)?;
-
 		assert_eq!(
 			result,
 			vec![
@@ -240,11 +236,7 @@ mod tests {
 
 	#[test]
 	fn invalid_path() -> Result<(), String> {
-		let request = Request::builder()
-			.uri("http://foo.bar/echo")
-			.method(Method::GET)
-			.body(Body::empty())
-			.unwrap();
+		let request = request!(GET "/echo");
 
 		let response = handle_request(request).wait().unwrap();
 
