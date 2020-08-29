@@ -40,7 +40,7 @@ pub fn run() {
 
 	let addr = ([127, 0, 0, 1], 3000).into();
 
-	let service = || hyper::service::service_fn(&handle_request);
+	let service = || hyper::service::service_fn(&route_request);
 
 	let server = hyper::Server::bind(&addr)
 		.serve(service)
@@ -49,7 +49,7 @@ pub fn run() {
 	hyper::rt::run(server);
 }
 
-fn handle_request(request: Request<Body>) -> route::BoxOfDreams {
+fn route_request(request: Request<Body>) -> route::BoxOfDreams {
 	let (parts, body) = request.into_parts();
 	match (parts.uri.path(), parts.method) {
 		("/1/echo", Method::GET) => route::process_request(body, &echo::get),
@@ -146,7 +146,7 @@ mod tests {
 	fn echoes() -> Result<(), String> {
 		let request = request!(GET "/1/echo");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Message>(response)?;
@@ -161,7 +161,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Vec<Mug>>(response)?;
@@ -193,7 +193,7 @@ mod tests {
 			}
 		);
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Mug = deserialize_response(response)?;
@@ -210,7 +210,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Vec<Mug>>(response)?;
@@ -243,7 +243,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response)?;
@@ -271,7 +271,7 @@ mod tests {
 			}
 		);
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Mug = deserialize_response(response)?;
@@ -289,7 +289,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response)?;
@@ -311,13 +311,17 @@ mod tests {
 	fn invalid_path() -> Result<(), String> {
 		let request = request!(GET "/echo");
 
-		let response = handle_request(request).wait().unwrap();
+		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::NOT_FOUND);
 		let result = deserialize_response::<Message>(response)?;
 		assert_eq!(result, Message::from("Not found"));
 
 		Ok(())
+	}
+
+	fn handle(request: Request<Body>) -> Response<Body> {
+		route_request(request).wait().unwrap()
 	}
 
 	fn deserialize_response<T: DeserializeOwned>(response: Response<Body>) -> Result<T, String> {
