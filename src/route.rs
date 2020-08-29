@@ -96,9 +96,7 @@ where
 					.body(Body::from(s))
 					.unwrap())
 			});
-		result.unwrap_or_else(|e| {
-			error_response(e.http_status(), Message::from(e.to_string()))
-		})
+		result.unwrap_or_else(|e| error_response(e.http_status(), Message::from(e.to_string())))
 	});
 	Box::new(response_future)
 }

@@ -21,7 +21,9 @@ pub struct Message {
 
 impl From<&'_ str> for Message {
 	fn from(s: &'_ str) -> Self {
-		Message { message: s.to_owned() }
+		Message {
+			message: s.to_owned(),
+		}
 	}
 }
 
@@ -181,14 +183,15 @@ mod tests {
 	fn inserts_mug() -> Result<(), String> {
 		init_storage();
 
-		let request = request!(PUT "/1/mugs", 
+		let request = request!(PUT "/1/mugs",
 			&EphemeralMug {
 				name: String::from("Point"),
 				lat: -39.0,
 				lon: -67.0,
 				address: String::from("Real Address"),
 				num_mugs: 4,
-			});
+			}
+		);
 
 		let response = handle_request(request).wait().unwrap();
 
@@ -265,7 +268,8 @@ mod tests {
 				lon: 16.93,
 				address: String::from("14 Bar Street"),
 				num_mugs: 3,
-			});
+			}
+		);
 
 		let response = handle_request(request).wait().unwrap();
 
