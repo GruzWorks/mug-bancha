@@ -308,6 +308,56 @@ mod tests {
 	}
 
 	#[test]
+	fn removes_mug() -> Result<(), String> {
+		init_storage();
+
+		let request = request!(GET "/1/mugs");
+
+		let response = handle(request);
+
+		assert_eq!(response.status(), StatusCode::OK);
+		let result: Vec<Mug> = deserialize_response(response)?;
+		assert_eq!(
+			result,
+			vec![EphemeralMug {
+				name: String::from("Foo"),
+				lat: 51.0,
+				lon: 17.0,
+				address: String::from("14 Bar Street"),
+				num_mugs: 2,
+			}]
+		);
+
+		let id = result[0].id;
+
+		let request = request!(DELETE "/1/mugs",
+			&Mug {
+				id,
+				name: String::from("Foo"),
+				lat: 51.0,
+				lon: 17.0,
+				address: String::from("14 Bar Street"),
+				num_mugs: 2,
+			}
+		);
+
+		let response = handle(request);
+
+		assert_eq!(response.status(), StatusCode::OK);
+		let result: () = deserialize_response(response)?;
+
+		let request = request!(GET "/1/mugs");
+
+		let response = handle(request);
+
+		assert_eq!(response.status(), StatusCode::OK);
+		let result: Vec<Mug> = deserialize_response(response)?;
+		assert_eq!(result, Vec::<Mug>::new());
+
+		Ok(())
+	}
+
+	#[test]
 	fn invalid_path() -> Result<(), String> {
 		let request = request!(GET "/echo");
 
