@@ -1,13 +1,8 @@
-use std::collections::HashMap;
-
 use bytes::Bytes;
-use futures::future;
-use futures::future::Future;
-use http::StatusCode;
-use hyper::rt::Stream;
-use hyper::{Body, Method, Request, Response};
+use futures::{future, Future};
+use http::{Method, Request, Response, StatusCode};
+use hyper::{Body, rt::Stream};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::json;
 
 use crate::{
 	error::{PipelineError, PipelineResult},

@@ -1,14 +1,9 @@
 use std::sync::Mutex;
 
-use futures::future;
-use futures::future::Future;
-use http::{Request, StatusCode};
-use hyper::{Body, Method};
+use futures::Future;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use crate::route;
-use resource::echo;
 use resource::mugs;
 
 pub mod resource;
@@ -50,9 +45,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-	use bytes::Bytes;
-	use futures::stream::Stream;
-	use http::Response;
+	use http::{Method, Request, Response, StatusCode};
+	use hyper::Body;
 	use serde::de::DeserializeOwned;
 
 	use super::*;
@@ -295,7 +289,7 @@ mod tests {
 		let response = handle(request);
 
 		assert_eq!(response.status(), StatusCode::OK);
-		let result: () = deserialize_response(response)?;
+		let _result: () = deserialize_response(response)?;
 
 		let request = request!(GET "/1/mugs");
 
