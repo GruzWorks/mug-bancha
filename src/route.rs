@@ -11,79 +11,38 @@ use serde_json::json;
 
 use crate::{
 	error::{PipelineError, PipelineResult},
-	service::Message,
+	service::{
+		resource::{echo, mugs},
+		Message,
+	},
 };
 
 /**
  * This is unstable in Rust for now
 type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
  **/
-pub type BoxOfDreams = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
+type ResponseFuture = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
 
-#[derive(PartialEq, Eq, Hash)]
-pub struct Endpoint<'a>(pub &'a str, pub &'a Method);
-
-pub struct Resolution {
-	pub adapter: Box<dyn Fn(Body) -> BoxOfDreams>,
-	pub sample_request_body: &'static str,
-	pub sample_response_body: &'static str,
-}
-
-pub struct Router<'a> {
-	routes: HashMap<Endpoint<'a>, Resolution>,
-}
-
-impl<'a> Router<'a> {
-	pub fn with_routes(r: Vec<(Endpoint<'a>, Resolution)>) -> Self {
-		Router {
-			routes: r.into_iter().collect(),
-		}
-	}
-
-	pub fn dispatch(&self, request: Request<Body>) -> BoxOfDreams {
-		let (parts, body) = request.into_parts();
-		match self.routes.get(&Endpoint(parts.uri.path(), &parts.method)) {
-			Some(resolution) => (resolution.adapter)(body),
-			None => Box::new(future::ok(error_response(
-				StatusCode::NOT_FOUND,
-				Message::from("Not found"),
-			))),
-		}
+pub fn route_request(request: Request<Body>) -> ResponseFuture {
+	let (parts, body) = request.into_parts();
+	match (parts.uri.path(), parts.method) {
+		("/1/echo", Method::GET) => process_request(body, &echo::get),
+		("/1/mugs", Method::GET) => process_request(body, &mugs::get),
+		("/1/mugs", Method::PUT) => process_request(body, &mugs::put),
+		("/1/mugs", Method::PATCH) => process_request(body, &mugs::patch),
+		("/1/mugs", Method::DELETE) => process_request(body, &mugs::delete),
+		_ => Box::new(future::ok(error_response(
+			StatusCode::NOT_FOUND,
+			Message::from("Not found"),
+		))),
 	}
 }
 
-#[macro_export]
-macro_rules! route {
-	(
-		$endpoint:expr,
-		$handler:expr,
-		$req_body_type:ty,
-		$resp_body_type:ty,
-		$sample_req_body:expr,
-		$sample_resp_body:expr
-	) => {
-			(
-			$endpoint,
-			$crate::route::Resolution {
-				adapter: Box::new(|body| -> $crate::route::BoxOfDreams {
-					$crate::route::process_request::<$req_body_type, $resp_body_type>(
-						body, $handler,
-					)
-				}),
-				sample_request_body: $sample_req_body,
-				sample_response_body: $sample_resp_body,
-				},
-			)
-	};
-}
-
-pub fn process_request<I, O>(
-	body: Body,
-	handler: &'static (dyn Fn(I) -> PipelineResult<O> + Sync),
-) -> BoxOfDreams
+pub fn process_request<I, O, Handler>(body: Body, handler: &'static Handler) -> ResponseFuture
 where
 	I: DeserializeOwned,
 	O: Serialize,
+	Handler: Fn(I) -> PipelineResult<O> + Sync,
 {
 	let response_future = json_bytes(body).map(move |chunk| {
 		let result = serde_json::from_slice::<I>(&chunk)
