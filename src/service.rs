@@ -5,6 +5,7 @@ use crate::{message::Message, routes};
 use resource::{echo, mugs};
 
 pub mod resource;
+mod storage;
 
 routes!(
 	"/1/echo" => {
