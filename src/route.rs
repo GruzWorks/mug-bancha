@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
 	error::{PipelineError, PipelineResult},
-	service::Message,
+	message::Message,
 };
 
 pub type ResponseResult = hyper::Result<Response<Body>>;
@@ -24,12 +24,12 @@ macro_rules! routes {
 					$( http::Method::$method => $crate::route::process_request(body, &$handler).await, )*
 					_ => Ok($crate::route::error_response(
 						http::StatusCode::METHOD_NOT_ALLOWED,
-						$crate::service::Message::from("Method not allowed"),
+						$crate::message::Message::from("Method not allowed"),
 					))
 				}, )*
 				_ => Ok($crate::route::error_response(
 					http::StatusCode::NOT_FOUND,
-					$crate::service::Message::from("Not found"),
+					$crate::message::Message::from("Not found"),
 				))
 			}
 		}

@@ -1,31 +1,10 @@
 use std::convert::Infallible;
 use std::sync::Mutex;
 
-use serde::{Deserialize, Serialize};
-
-use crate::routes;
+use crate::{message::Message, routes};
 use resource::{echo, mugs};
 
 pub mod resource;
-
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Message {
-	pub message: String,
-}
-
-impl From<&'_ str> for Message {
-	fn from(s: &'_ str) -> Self {
-		Message {
-			message: s.to_owned(),
-		}
-	}
-}
-
-impl From<String> for Message {
-	fn from(s: String) -> Self {
-		Message { message: s }
-	}
-}
 
 routes!(
 	"/1/echo" => {
@@ -61,7 +40,6 @@ pub async fn run() {
 mod tests {
 	use http::{Method, Request, Response, StatusCode};
 	use hyper::Body;
-	use serde::de::DeserializeOwned;
 
 	use super::*;
 	use crate::route;
@@ -334,7 +312,7 @@ mod tests {
 		routes_fn(request).await.unwrap()
 	}
 
-	async fn deserialize_response<T: DeserializeOwned>(
+	async fn deserialize_response<T: serde::de::DeserializeOwned>(
 		response: Response<Body>,
 	) -> Result<T, String> {
 		route::json_bytes(response.into_body())
