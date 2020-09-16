@@ -8,11 +8,7 @@ use crate::{
 	service::Message,
 };
 
-/**
- * This is unstable in Rust for now
-type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
- **/
-pub type ResponseFuture = Result<Response<Body>, hyper::Error>;
+pub type ResponseResult = hyper::Result<Response<Body>>;
 
 #[macro_export]
 macro_rules! routes {
@@ -21,7 +17,7 @@ macro_rules! routes {
 			$($method:ident: $handler:expr),* $(,)?
 		}),* $(,)?
 	) => {
-		async fn routes_fn(request: http::Request<hyper::Body>) -> $crate::route::ResponseFuture {
+		async fn routes_fn(request: http::Request<hyper::Body>) -> $crate::route::ResponseResult {
 			let (parts, body) = request.into_parts();
 			match parts.uri.path() {
 				$( $path => match parts.method {
@@ -40,7 +36,7 @@ macro_rules! routes {
 	};
 }
 
-pub async fn process_request<I, O, Handler>(body: Body, handler: &'static Handler) -> ResponseFuture
+pub async fn process_request<I, O, Handler>(body: Body, handler: &'static Handler) -> ResponseResult
 where
 	I: DeserializeOwned,
 	O: Serialize,
