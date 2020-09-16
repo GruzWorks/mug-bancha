@@ -3,8 +3,8 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-use crate::route;
-use resource::mugs;
+use crate::routes;
+use resource::{echo, mugs};
 
 pub mod resource;
 
@@ -27,6 +27,18 @@ impl From<String> for Message {
 	}
 }
 
+routes!(
+	"/1/echo" => {
+		GET: echo::get,
+	},
+	"/1/mugs" => {
+		GET: mugs::get,
+		PUT: mugs::put,
+		PATCH: mugs::patch,
+		DELETE: mugs::delete,
+	},
+);
+
 pub async fn run() {
 	unsafe {
 		mugs::MUGS.storage = Some(Mutex::new(mugs::Storage::init()));
@@ -35,13 +47,10 @@ pub async fn run() {
 	let addr = ([127, 0, 0, 1], 3000).into();
 
 	let make_svc = hyper::service::make_service_fn(|_conn| async {
-		Ok::<_, Infallible>(hyper::service::service_fn(route::route_request))
+		Ok::<_, Infallible>(hyper::service::service_fn(routes_fn))
 	});
 
-
-
-	let server = hyper::Server::bind(&addr)
-		.serve(make_svc);
+	let server = hyper::Server::bind(&addr).serve(make_svc);
 
 	if let Err(e) = server.await {
 		eprintln!("hyper error: {}", e);
@@ -55,6 +64,7 @@ mod tests {
 	use serde::de::DeserializeOwned;
 
 	use super::*;
+	use crate::route;
 	use resource::mugs::{self, EphemeralMug, Mug, Storage};
 
 	macro_rules! request {
@@ -321,10 +331,12 @@ mod tests {
 	}
 
 	async fn handle(request: Request<Body>) -> Response<Body> {
-		route::route_request(request).await.unwrap()
+		routes_fn(request).await.unwrap()
 	}
 
-	async fn deserialize_response<T: DeserializeOwned>(response: Response<Body>) -> Result<T, String> {
+	async fn deserialize_response<T: DeserializeOwned>(
+		response: Response<Body>,
+	) -> Result<T, String> {
 		route::json_bytes(response.into_body())
 			.await
 			.map(move |chunk| serde_json::from_slice::<T>(&chunk))

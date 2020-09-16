@@ -1,35 +1,43 @@
 use bytes::Bytes;
-use http::{Method, Request, Response, StatusCode};
+use http::{Response, StatusCode};
 use hyper::Body;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
 	error::{PipelineError, PipelineResult},
-	service::{
-		resource::{echo, mugs},
-		Message,
-	},
+	service::Message,
 };
 
 /**
  * This is unstable in Rust for now
 type ResponseFuture = impl Future<Item = Response<Body>, Error = hyper::Error>;
  **/
-type ResponseFuture = Result<Response<Body>, hyper::Error>;
+pub type ResponseFuture = Result<Response<Body>, hyper::Error>;
 
-pub async fn route_request(request: Request<Body>) -> ResponseFuture {
-	let (parts, body) = request.into_parts();
-	match (parts.uri.path(), parts.method) {
-		("/1/echo", Method::GET) => process_request(body, &echo::get).await,
-		("/1/mugs", Method::GET) => process_request(body, &mugs::get).await,
-		("/1/mugs", Method::PUT) => process_request(body, &mugs::put).await,
-		("/1/mugs", Method::PATCH) => process_request(body, &mugs::patch).await,
-		("/1/mugs", Method::DELETE) => process_request(body, &mugs::delete).await,
-		_ => Ok(error_response(
-			StatusCode::NOT_FOUND,
-			Message::from("Not found"),
-		)),
-	}
+#[macro_export]
+macro_rules! routes {
+	(
+		$($path:literal => {
+			$($method:ident: $handler:expr),* $(,)?
+		}),* $(,)?
+	) => {
+		async fn routes_fn(request: http::Request<hyper::Body>) -> $crate::route::ResponseFuture {
+			let (parts, body) = request.into_parts();
+			match parts.uri.path() {
+				$( $path => match parts.method {
+					$( http::Method::$method => $crate::route::process_request(body, &$handler).await, )*
+					_ => Ok($crate::route::error_response(
+						http::StatusCode::METHOD_NOT_ALLOWED,
+						$crate::service::Message::from("Method not allowed"),
+					))
+				}, )*
+				_ => Ok($crate::route::error_response(
+					http::StatusCode::NOT_FOUND,
+					$crate::service::Message::from("Not found"),
+				))
+			}
+		}
+	};
 }
 
 pub async fn process_request<I, O, Handler>(body: Body, handler: &'static Handler) -> ResponseFuture
