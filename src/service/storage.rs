@@ -9,9 +9,9 @@ pub type Result<T> = std::result::Result<T, StorageErr>;
 pub struct StorageErr;
 
 #[async_trait]
-pub trait Storage: Clone + Send {
+pub trait Storage: Send {
 	async fn select_all_mugs(&self) -> Result<Vec<Mug>>;
 	async fn insert_mug(&self, v: EphemeralMug) -> Result<Mug>;
 	async fn update_mug(&self, v: Mug) -> Result<Mug>;
-	async fn delete(&self, v: Mug) -> Result<()>;
+	async fn delete_mug(&self, v: Mug) -> Result<()>;
 }

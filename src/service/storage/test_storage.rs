@@ -58,7 +58,7 @@ impl Storage for TestStorage {
 		}
 	}
 
-	async fn delete(&self, v: Mug) -> Result<()> {
+	async fn delete_mug(&self, v: Mug) -> Result<()> {
 		let mut write = self.mugs.write().await;
 		let before = write.len();
 		write.retain(|entry| entry.id != v.id);

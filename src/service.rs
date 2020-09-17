@@ -3,9 +3,10 @@ use std::sync::Mutex;
 
 use crate::{message::Message, routes};
 use resource::{echo, mugs};
+use storage::{test_storage::TestStorage, Storage};
 
 pub mod resource;
-mod storage;
+pub mod storage;
 
 routes!(
 	"/1/echo" => {
@@ -20,14 +21,14 @@ routes!(
 );
 
 pub async fn run() {
-	unsafe {
-		mugs::MUGS.storage = Some(Mutex::new(mugs::Storage::init()));
-	}
+	let storage = TestStorage::new();
 
 	let addr = ([127, 0, 0, 1], 3000).into();
 
 	let make_svc = hyper::service::make_service_fn(|_conn| async {
-		Ok::<_, Infallible>(hyper::service::service_fn(routes_fn))
+		Ok::<_, Infallible>(hyper::service::service_fn(|req| {
+			routes_fn(req, Box::new(storage.clone()))
+		}))
 	});
 
 	let server = hyper::Server::bind(&addr).serve(make_svc);
@@ -44,7 +45,7 @@ mod tests {
 
 	use super::*;
 	use crate::route;
-	use resource::mugs::{self, EphemeralMug, Mug, Storage};
+	use resource::mugs::{self, EphemeralMug, Mug};
 
 	macro_rules! request {
 		( $method:ident $path:expr ) => {
@@ -63,29 +64,29 @@ mod tests {
 		};
 	}
 
-	fn init_storage() {
-		let mut storage = Storage::init();
+	async fn init_storage() -> Box<dyn Storage> {
+		let storage = TestStorage::new();
 
 		storage
-			.insert(EphemeralMug {
+			.insert_mug(EphemeralMug {
 				name: String::from("Foo"),
 				lat: 51.0,
 				lon: 17.0,
 				address: String::from("14 Bar Street"),
 				num_mugs: 2,
 			})
-			.unwrap();
+			.await;
 
-		unsafe {
-			mugs::MUGS.storage = Some(Mutex::new(storage));
-		}
+		Box::new(storage)
 	}
 
 	#[tokio::test]
 	async fn echoes() -> Result<(), String> {
+		let storage = init_storage().await;
+
 		let request = request!(GET "/1/echo");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Message>(response).await?;
@@ -96,11 +97,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn lists_mugs() -> Result<(), String> {
-		init_storage();
+		let storage = init_storage().await;
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Vec<Mug>>(response).await?;
@@ -120,7 +121,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn inserts_mug() -> Result<(), String> {
-		init_storage();
+		let storage = init_storage().await;
 
 		let request = request!(PUT "/1/mugs",
 			&EphemeralMug {
@@ -132,7 +133,7 @@ mod tests {
 			}
 		);
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Mug = deserialize_response(response).await?;
@@ -149,7 +150,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result = deserialize_response::<Vec<Mug>>(response).await?;
@@ -178,11 +179,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn updates_mug() -> Result<(), String> {
-		init_storage();
+		let storage = init_storage().await;
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response).await?;
@@ -210,7 +211,7 @@ mod tests {
 			}
 		);
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Mug = deserialize_response(response).await?;
@@ -228,7 +229,7 @@ mod tests {
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response).await?;
@@ -248,11 +249,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn removes_mug() -> Result<(), String> {
-		init_storage();
+		let storage = init_storage().await;
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response).await?;
@@ -280,14 +281,14 @@ mod tests {
 			}
 		);
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let _result: () = deserialize_response(response).await?;
 
 		let request = request!(GET "/1/mugs");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::OK);
 		let result: Vec<Mug> = deserialize_response(response).await?;
@@ -298,9 +299,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn invalid_path() -> Result<(), String> {
+		let storage = init_storage().await;
+
 		let request = request!(GET "/echo");
 
-		let response = handle(request).await;
+		let response = handle(request, storage).await;
 
 		assert_eq!(response.status(), StatusCode::NOT_FOUND);
 		let result = deserialize_response::<Message>(response).await?;
@@ -309,8 +312,8 @@ mod tests {
 		Ok(())
 	}
 
-	async fn handle(request: Request<Body>) -> Response<Body> {
-		routes_fn(request).await.unwrap()
+	async fn handle(request: Request<Body>, storage: Box<dyn Storage>) -> Response<Body> {
+		routes_fn(request, storage).await.unwrap()
 	}
 
 	async fn deserialize_response<T: serde::de::DeserializeOwned>(
