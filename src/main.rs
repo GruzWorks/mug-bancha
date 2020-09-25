@@ -1,7 +1,4 @@
-mod error;
-mod route;
-mod service;
-
-fn main() {
-	service::run();
+#[tokio::main]
+async fn main() {
+	mug_bancha::service::run().await;
 }

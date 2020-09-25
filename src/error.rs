@@ -30,8 +30,7 @@ impl PipelineError {
 impl Error for PipelineError {
 	fn source(&self) -> Option<&(dyn Error + 'static)> {
 		match self {
-			Self::InvalidPayload(source) |
-			Self::InternalIoError(source) => Some(source.borrow()),
+			Self::InvalidPayload(source) | Self::InternalIoError(source) => Some(source.borrow()),
 			_ => None,
 		}
 	}
