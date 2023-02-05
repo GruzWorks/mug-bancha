@@ -1,6 +1,8 @@
 # mug-bancha
 Find publicly accessible power sockets in your city! Backend server
 
+**This project is discontinued.**
+
 ## Building from source
 ### Requirements
 * Rust toolchain (preferably stable) supporting the 2018 edition
